@@ -1,3 +1,4 @@
+function exclList(){try{return (localStorage.getItem('nexora_excl')||'').split('\n').map(function(x){return x.trim().toLowerCase()}).filter(Boolean)}catch(e){return []}}
 (function(){
 'use strict';
 var KEY='nexora.v1';
@@ -46,7 +47,7 @@ projects:{title:'المشروعات',icon:'',add:'مشروع جديد',fields:[{
  item:function(o){return '<div class="title">'+esc(o.name)+'</div><div class="meta">'+esc(o.stage)+'</div>'+chip(o.status,o.status==='مكتمل'?'ok':(o.status==='متوقف'?'warn':''))+(o.next?'<div class="meta">التالي: '+esc(o.next)+'</div>':'')}},
 career:{title:'المسار المهني',icon:'',add:'وظيفة / شركة',fields:[{k:'company',l:'الشركة',t:'text',req:1},{k:'role',l:'المسمى',t:'text',req:1},{k:'where',l:'المنطقة',t:'select',o:['الخليج','مصر','دولي']},{k:'stage',l:'المرحلة',t:'select',o:['مرشحة','جاهز للتقديم (بانتظار موافقتك)','تم التقديم فعلا','مقابلة','عرض','مرفوض']},{k:'applied',l:'تاريخ التقديم الفعلي (فقط إن حدث)',t:'date'},{k:'notes',l:'ملاحظات',t:'textarea'}],
  def:function(){return {company:'',role:'',where:'الخليج',stage:'مرشحة',applied:'',notes:''}},
- validate:function(o){if(/storekeeper|stock controller|أمين مخزن|امين مخزن/i.test(o.role))return 'هذه الوظيفة مستبعدة (وظائف المخازن التقليدية)'; if(/amazon|أمازون|امازون/i.test(o.company))return 'تم استبعاد Amazon بحسب تعليماتك'; var dup=S.career.filter(function(x){return x.id!==o.id&&x.company.trim().toLowerCase()===o.company.trim().toLowerCase()&&x.role.trim().toLowerCase()===o.role.trim().toLowerCase()}); if(dup.length)return 'مكررة: هذه الوظيفة مسجلة بالفعل'},
+ validate:function(o){var ex=exclList(),hit=ex.find(function(t){return (o.role+' '+o.company).toLowerCase().indexOf(t)>-1});if(hit)return 'مستبعدة حسب قائمة الاستبعاد الخاصة بك: '+hit; var dup=S.career.filter(function(x){return x.id!==o.id&&x.company.trim().toLowerCase()===o.company.trim().toLowerCase()&&x.role.trim().toLowerCase()===o.role.trim().toLowerCase()}); if(dup.length)return 'مكررة: هذه الوظيفة مسجلة بالفعل'},
  item:function(o){return '<div class="title">'+esc(o.role)+' | '+esc(o.company)+'</div><div>'+chip(o.stage)+chip(o.where)+(o.applied?chip('قُدّم '+fmtDate(o.applied),'ok'):'')+'</div>'}},
 finance:{title:'المالية',icon:'',add:'قيد مالي',fields:[{k:'date',l:'التاريخ',t:'date'},{k:'type',l:'النوع',t:'select',o:['دخل','مصروف','ادخار','التزام شهري']},{k:'cat',l:'التصنيف',t:'text'},{k:'amount',l:'المبلغ (جنيه)',t:'number',req:1},{k:'notes',l:'ملاحظة',t:'text'}],
  def:function(){return {date:today(),type:'مصروف',cat:'',amount:'',notes:''}},
@@ -279,6 +280,7 @@ function syncCard(){var a=jget(AUTHK),st=jget(SYNCK)||{};
  return h+'<div class="meta">عند اختلاف النسخ بين جهازين تُدمج السجلات بالمعرّف ويُحفظ احتياطي محلي. الحذف على جهاز قد لا ينتقل للآخر.</div></div>'}
 function settings(){
  var h='<h2>النسخ الاحتياطي والإعدادات</h2><div class="card"><div class="title">بياناتك على هذا الجهاز فقط</div><div class="meta">تُحفظ داخل متصفح الآيفون. المزامنة السحابية اختيارية (بالأسفل). اعمل نسخة احتياطية بانتظام، فمسح بيانات Safari يمسحها.</div><div class="acts"><button id="ex">تصدير نسخة احتياطية</button><button class="sec" id="im">استيراد نسخة</button></div><input type="file" id="fi" accept=".json,application/json" style="display:none"></div>';
+ h+='<div class="card"><div class="title">قائمة الاستبعاد (المسار المهني)</div><div class="meta">اكتب كلمة أو اسم شركة في كل سطر. أي وظيفة تحتويها تُرفض عند الإضافة. تُحفظ على هذا الجهاز فقط ولا تُرفع للسحابة.</div><textarea id="exl" rows="4" style="width:100%">'+esc((function(){try{return localStorage.getItem('nexora_excl')||''}catch(e){return ''}})())+'</textarea><div class="acts"><button id="exs">حفظ القائمة</button></div></div>';
  h+=syncCard();
  h+='<div class="card"><div class="title">سجل العمليات</div>'+S.audit.slice(0,15).map(function(a){return '<div class="meta">'+new Date(a.t).toLocaleString('ar-EG-u-nu-latn')+' | '+esc(a.a)+'</div>'}).join('')+'</div>';
  h+='<div class="card"><div class="title">إعادة الضبط</div><div class="meta">يمسح كل البيانات ويعيد البيانات الأولية.</div><div class="acts"><button class="dng" id="rs">مسح كل شيء</button></div></div><div class="note">لم يُبنَ بعد: ربط جيميل والتقويم والبنك، والإشعارات.</div>';
@@ -310,7 +312,7 @@ function wire(r){
  var qg=$('#qgo');if(qg)qg.onclick=function(){gradeQuiz(arg0())};
  var sq=$('#sq');if(sq){sq.oninput=function(){SEARCH_Q=sq.value;$('#sr').innerHTML=searchResults(SEARCH_Q);bindCards('search',$('#sr'))};if(!SEARCH_Q)sq.focus()}
  ['au_in','au_up','au_sync','au_out'].forEach(function(id){var b=$('#'+id);if(!b)return;b.onclick=function(){if(id==='au_in')doAuth('in');else if(id==='au_up')doAuth('up');else if(id==='au_sync'){SYNC_MSG='جارٍ المزامنة...';render();syncNow()}else doOut()}});
- var ex=$('#ex');if(ex)ex.onclick=exportData;
+ var ex=$('#ex');if(ex)ex.onclick=exportData;var exs=$('#exs');if(exs)exs.onclick=function(){try{localStorage.setItem('nexora_excl',$('#exl').value)}catch(e){}toast('تم حفظ قائمة الاستبعاد')};
  var im=$('#im');if(im)im.onclick=function(){$('#fi').click()};
  var fi=$('#fi');if(fi)fi.onchange=function(){var f=fi.files[0];if(!f)return;var rd=new FileReader();rd.onload=function(){try{var d=JSON.parse(rd.result);if(!d||!d.tasks||!d.decisions||!d.learning)throw 0;S=d;if(!S.lifestyle)S.lifestyle=[];if(!S.english)S.english=[];if(!S.progress)S.progress={};log('تم استيراد نسخة احتياطية');save();render();toast('تم الاستيراد')}catch(e){toast('الملف غير صالح')}};rd.readAsText(f)};
  var rs=$('#rs');if(rs)rs.onclick=function(){if(rs.dataset.s){S=seed();save();render();toast('تمت إعادة الضبط')}else{rs.dataset.s=1;rs.textContent='اضغط للتأكيد، سيُمسح كل شيء'}};
